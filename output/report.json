@@ -1,0 +1,17 @@
+{
+  "url": "https://books.toscrape.com",
+  "page_title": "All products | Books to Scrape - Sandbox",
+  "headings": [
+    "All products"
+  ],
+  "cleaned_content": "All products\nWarning!\nThis is a demo website for web scraping purposes. Prices and ratings here were randomly assigned and have no real meaning.\nA Light in the ...\nÂ£51.77\nIn stock\nTipping the Velvet\nÂ£53.74\nIn stock\nSoumission\nÂ£50.10\nIn stock\nSharp Objects\nÂ£47.82\nIn stock\nSapiens: A Brief History ...\nÂ£54.23\nIn stock\nThe Requiem Red\nÂ£22.65\nIn stock\nThe Dirty Little Secrets ...\nÂ£33.34\nIn stock\nThe Coming Woman: A ...\nÂ£17.93\nIn stock\nThe Boys in the ...\nÂ£22.60\nIn stock\nThe Black Maria\nÂ£52.15\nIn stock\nStarving Hearts (Triangular Trade ...\nÂ£13.99\nIn stock\nShakespeare's Sonnets\nÂ£20.66\nIn stock\nSet Me Free\nÂ£17.46\nIn stock\nScott Pilgrim's Precious Little ...\nÂ£52.29\nIn stock\nRip it Up and ...\nÂ£35.02\nIn stock\nOur Band Could Be ...\nÂ£57.25\nIn stock\nOlio\nÂ£23.88\nIn stock\nMesaerion: The Best Science ...\nÂ£37.59\nIn stock\nLibertarianism for Beginners\nÂ£51.33\nIn stock\nIt's Only the Himalayas\nÂ£45.17\nIn stock\nPage 1 of 50\nnext",
+  "summary": "This is a demo website for web scraping purposes. Prices and ratings here were randomly assigned and have no real meaning. A Light in the ... Â£51.77\nIn stock\nTipping the Velvet\nÂ£53.74\nIn stock\nSoumission\nÂ£50.10\nIn stock\nSharp Objects\nÂ£47.82\nIn stock\nSapiens: A Brief History ... Â£54.23\nIn stock\nThe Requiem Red\nÂ£22.65\nIn stock\nThe Dirty Little Secrets ...",
+  "business_type": "General / Unclassified",
+  "sub_pages": [],
+  "audit_metadata": {
+    "timestamp": "2026-03-24T17:50:33.618515",
+    "synthesis_method": "heuristic",
+    "sub_pages_discovered": 0,
+    "elapsed_seconds": 7.7
+  }
+}
