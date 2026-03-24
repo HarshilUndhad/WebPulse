@@ -1,202 +1,284 @@
-# 🔍 Project WebPulse — AI-Powered Website Auditor & Summarizer
+# Project WebPulse -- AI-Powered Website Auditor and Summarizer
 
-> Extract, clean, and analyse any website to generate a structured business intelligence report — powered by Google Gemini with an automatic heuristic fallback.
-
----
-
-## Architecture
-
-```
-main.py                     ← Clean CLI entry point
-├── src/
-│   ├── collector.py        ← The Explorer   — HTTP navigation + Deep Search
-│   ├── cleaner.py          ← The Refiner    — Signal/noise separation
-│   ├── auditor.py          ← The Brain      — LLM + Heuristic fallback
-│   ├── schema.py           ← Pydantic models for validated JSON output
-│   ├── logger.py           ← Branded terminal logger
-│   └── exceptions.py       ← Custom exception hierarchy
-├── output/
-│   └── report.json         ← Generated audit report
-├── requirements.txt
-├── .env.example
-└── README.md
-```
-
-### Pipeline Flow
-
-```
-   URL Input
-       │
-       ▼
- ┌─────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
- │  COLLECT     │───▶│  CLEAN       │───▶│  AUDIT       │───▶│  VALIDATE    │
- │  (Explorer)  │    │  (Refiner)   │    │  (Brain)     │    │  (Pydantic)  │
- └─────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
-       │                                       │
-       ▼                                       ▼
-  Deep Search                          LLM ──or── Heuristic
-  (sub-pages)                          Fallback
-```
+WebPulse takes any website URL as input, extracts and cleans the content, then uses AI to generate a structured business summary. It works both as a command-line tool and as a REST API.
 
 ---
 
-## Quick Start
+## Table of Contents
 
-### 1. Clone & Set Up
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Setup](#setup)
+- [Usage](#usage)
+  - [Command Line](#command-line)
+  - [REST API](#rest-api)
+- [Output Format](#output-format)
+- [How It Works](#how-it-works)
+- [Reliability Layer](#reliability-layer)
+- [Deep Search](#deep-search)
+- [Error Handling](#error-handling)
+- [Tech Stack](#tech-stack)
+
+---
+
+## Features
+
+- Extracts page title, headings (H1, H2), and main body text from any website
+- Removes navigation bars, footers, ads, cookie banners, and other noise
+- Generates a 3-5 line AI-powered business summary using OpenAI (gpt-4o-mini)
+- Classifies the business type (E-Commerce, SaaS, Healthcare, etc.)
+- Automatically discovers and analyses sub-pages (/about, /services, /contact)
+- Falls back to heuristic analysis if no API key is available
+- Outputs a validated JSON report
+- Includes both CLI and FastAPI REST API interfaces
+
+---
+
+## Project Structure
+
+```
+Website_Extracter/
+    main.py              -- CLI entry point
+    api.py               -- FastAPI REST API server
+    test_api.py          -- API key diagnostic script
+    requirements.txt     -- Python dependencies
+    .env                 -- API key configuration (not committed)
+    .env.example         -- Example environment file
+    static/
+        index.html       -- Web frontend for the API
+    output/
+        report.json      -- Generated audit report
+    src/
+        collector.py     -- Fetches web pages and discovers sub-pages
+        cleaner.py       -- Removes noise and extracts meaningful content
+        auditor.py       -- AI summary generation with heuristic fallback
+        schema.py        -- Pydantic models for validated JSON output
+        logger.py        -- Colour-coded terminal logger
+        exceptions.py    -- Custom exception classes
+```
+
+---
+
+## Setup
+
+### 1. Clone the Repository
 
 ```bash
 git clone <repo-url>
 cd Website_Extracter
+```
 
-# Create a virtual environment
+### 2. Create a Virtual Environment (Recommended)
+
+```bash
 python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS / Linux
 
-# Install dependencies
+# Windows
+venv\Scripts\activate
+
+# macOS / Linux
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure API Key (Optional)
+### 4. Configure API Key (Optional)
 
 ```bash
 copy .env.example .env
-# Edit .env and paste your Gemini API key
-# Get one free at: https://aistudio.google.com/apikey
 ```
 
-> **Note:** If you skip this step, WebPulse will still work — it will use the heuristic fallback analyzer instead of the LLM. See the [Reliability Layer](#-reliability-layer) section below.
+Open the `.env` file and add your OpenAI API key:
 
-### 3. Run an Audit
-
-```bash
-python main.py https://example.com
+```
+OPENAI_API_KEY=sk-your_api_key_here
 ```
 
-**Options:**
+You can get an API key at: https://platform.openai.com/api-keys
 
-| Flag                | Description                              |
-|---------------------|------------------------------------------|
-| `--no-deep-search`  | Skip automatic sub-page discovery        |
-| `--output PATH`     | Custom path for the JSON report          |
+If you skip this step, WebPulse will still work using the heuristic fallback analyzer instead of AI. See the [Reliability Layer](#reliability-layer) section for details.
 
-**Examples:**
+
+### Command Line
+
+Run from the project root directory:
 
 ```bash
-# Basic audit
-python main.py https://books.toscrape.com
+# Interactive mode (prompts for URL)
+py main.py
+
+# Direct URL input
+py main.py https://youtube.com
 
 # Skip sub-page discovery
-python main.py https://example.com --no-deep-search
+py main.py https://youtube.com --no-deep-search
 
-# Save to a custom location
-python main.py https://example.com --output results/my_report.json
+# Save report to a custom location
+py main.py https://youtube.com --output results/my_report.json
+```
+
+Note: On Windows, use `py` instead of `python` if Python is not in your PATH.
+
+### REST API (with Web Frontend)
+
+Start the FastAPI server:
+
+```bash
+py api.py
+```
+
+Open `http://127.0.0.1:8000` in your browser to use the **web frontend** -- a clean interface where you can enter a URL, toggle deep search, and view the structured audit results directly in the browser.
+
+For API documentation, visit `http://127.0.0.1:8000/docs` (Swagger UI).
+
+#### Endpoints
+
+| Method | Endpoint       | Description                          |
+|--------|----------------|--------------------------------------|
+| GET    | /              | Web frontend (audit page)            |
+| GET    | /health        | Health check                         |
+| POST   | /audit         | Full audit with sub-page discovery   |
+| POST   | /audit/quick   | Quick audit without sub-pages        |
+
+#### Example API Request
+
+```bash
+curl -X POST http://127.0.0.1:8000/audit -H "Content-Type: application/json" -d "{\"url\": \"https://youtube.com\", \"deep_search\": true}"
 ```
 
 ---
 
 ## Output Format
 
-The tool produces a Pydantic-validated JSON report:
+WebPulse produces a JSON report with the following structure:
 
 ```json
 {
-  "url": "https://example.com",
-  "page_title": "Example Domain",
-  "headings": ["Example Domain"],
-  "cleaned_content": "This domain is for use in illustrative examples...",
-  "summary": "Example.com is a reserved domain used for documentation and illustrative examples in technical writing. It serves as a safe placeholder URL that will never host real content. The site is maintained by IANA as part of the RFC 2606 standard.",
-  "business_type": "General / Unclassified",
-  "sub_pages": [],
+  "url": "https://www.youtube.com",
+  "page_title": "YouTube",
+  "headings": ["About YouTube"],
+  "cleaned_content": "About YouTube. Our mission is to give everyone a voice...",
+  "summary": "YouTube is a platform dedicated to giving everyone a voice and showcasing diverse stories from around the world...",
+  "business_type": "Media & Entertainment",
+  "sub_pages": [
+    {
+      "url": "https://www.youtube.com/about/",
+      "title": "About YouTube",
+      "headings": ["About YouTube"],
+      "content_snippet": "Our mission is to give everyone a voice..."
+    }
+  ],
   "audit_metadata": {
-    "timestamp": "2026-03-24T17:30:00.000000",
+    "timestamp": "2026-03-24T23:11:10.282683",
     "synthesis_method": "llm",
-    "sub_pages_discovered": 0,
-    "elapsed_seconds": 3.21
+    "sub_pages_discovered": 1,
+    "elapsed_seconds": 7.16
   }
 }
 ```
 
----
+Key fields:
 
-## 🛡 Reliability Layer
-
-WebPulse implements a **dual-strategy synthesis architecture** to guarantee output even when external APIs are unavailable:
-
-### Strategy 1: LLM-Powered Analysis (Primary)
-
-When a valid `GEMINI_API_KEY` is configured, the system sends the cleaned content and headings to Google Gemini (`gemini-2.0-flash`) with a structured prompt. The LLM returns a 3–5 line business summary and a business-type classification.
-
-### Strategy 2: Heuristic Fallback (Automatic)
-
-When the LLM is unavailable (no API key, network failure, malformed response), the system automatically activates the `HeuristicFallbackAnalyzer`:
-
-1. **First-Paragraph Extraction** — Selects the first 3–5 meaningful sentences from the content as a naive summary.
-2. **Keyword Frequency Analysis** — Counts non-stopword terms and matches them against domain-specific keyword sets (E-Commerce, SaaS, Healthcare, Education, etc.) to classify the business type.
-
-The fallback is logged clearly in the terminal:
-```
-[WEBPULSE] ⚠ LLM unavailable — engaging heuristic fallback analyzer
-```
-
-The `audit_metadata.synthesis_method` field in the JSON output will show `"heuristic"` so consumers know which strategy was used.
+- `summary` -- A 3-5 line business summary generated by AI or heuristics
+- `business_type` -- The predicted industry category
+- `synthesis_method` -- Shows `"llm"` if AI was used, `"heuristic"` if fallback was used
+- `sub_pages` -- Data extracted from discovered internal pages
 
 ---
 
-## 🔎 Deep Search
+## How It Works
 
-WebPulse automatically discovers and crawls internal sub-pages to build a more comprehensive profile:
+The pipeline runs in five steps:
 
-### How It Works
+```
+URL Input --> COLLECT --> CLEAN --> AUDIT --> VALIDATE --> JSON Output
+```
 
-1. The Explorer scans all `<a>` tags on the root page.
-2. Internal links whose final path segment matches high-value patterns are selected:
-   - `/about`, `/about-us`, `/services`, `/contact`, `/team`, `/products`, `/pricing`, `/careers`, `/faq`
-3. Up to **5 sub-pages** are fetched and cleaned.
-4. Each sub-page's title, headings, and a 500-character content snippet are included in the output.
-5. Sub-page content is also fed to the LLM/heuristic analyzer for a richer summary.
+1. **Collect** -- Fetches the HTML from the target URL using rotating User-Agent headers. Discovers internal sub-pages like /about, /services, /contact.
 
-### Disabling Deep Search
+2. **Clean** -- Removes noisy HTML elements (scripts, styles, nav bars, footers, cookie banners, ads) and extracts the meaningful content, headings, and page title.
+
+3. **Audit** -- Sends the cleaned content to OpenAI's gpt-4o-mini model to generate a structured business summary and classification. If the API is unavailable, automatically falls back to heuristic analysis.
+
+4. **Validate** -- All output passes through Pydantic models to ensure the JSON is well-structured and type-safe.
+
+5. **Output** -- The validated report is saved as JSON and displayed in the terminal.
+
+---
+
+## Reliability Layer
+
+WebPulse uses a dual-strategy approach to guarantee output even when the AI API is unavailable:
+
+### Primary: AI-Powered Analysis
+
+When a valid `OPENAI_API_KEY` is configured, the system sends the cleaned content to OpenAI (gpt-4o-mini) with structured prompts. The model returns a business summary and type classification in JSON format.
+
+The terminal shows:
+```
+[WEBPULSE] Summary generated using AI (OpenAI gpt-4o-mini) -- Business type: 'Media & Entertainment'
+```
+
+### Fallback: Heuristic Analysis
+
+When the API is unavailable (no key, network failure, or API error), the system automatically activates the heuristic analyzer:
+
+1. **First-Paragraph Extraction** -- Selects the first 3-5 meaningful sentences as a summary
+2. **Keyword Frequency Analysis** -- Counts domain-specific terms to classify the business type
+
+The terminal shows:
+```
+[WEBPULSE] Summary generated using HEURISTIC FALLBACK (no LLM) -- Set OPENAI_API_KEY in .env for AI-powered summaries
+```
+
+The `synthesis_method` field in the output JSON indicates which strategy was used.
+
+---
+
+## Deep Search
+
+WebPulse automatically discovers and analyses internal sub-pages for a more comprehensive business profile:
+
+1. Scans all links on the root page
+2. Matches internal links against known business-relevant patterns: /about, /services, /contact, /team, /products, /pricing, /careers, /faq
+3. Fetches up to 5 sub-pages
+4. Extracts title, headings, and a 500-character content snippet from each
+5. Feeds sub-page content to the AI/heuristic analyzer for a richer summary
+
+To disable deep search:
 
 ```bash
-python main.py https://example.com --no-deep-search
+py main.py https://example.com --no-deep-search
 ```
 
----
-
-## Project Components
-
-| Module            | Class / Function                | Responsibility                                    |
-|-------------------|---------------------------------|---------------------------------------------------|
-| `collector.py`    | `SiteIntelligenceCollector`     | HTTP navigation, User-Agent rotation, deep search |
-| `cleaner.py`      | `ContentRefinery`               | DOM clutter removal, signal extraction            |
-| `auditor.py`      | `BusinessProfileSynthesizer`    | Gemini LLM integration                            |
-| `auditor.py`      | `HeuristicFallbackAnalyzer`     | Keyword frequency + first-paragraph fallback      |
-| `auditor.py`      | `WebsiteAuditor`                | Unified facade (LLM → fallback)                   |
-| `schema.py`       | `WebsiteAuditReport`           | Pydantic output validation                        |
-| `logger.py`       | `pulse_logger`                  | Branded terminal status updates                   |
-| `exceptions.py`   | `NavigationError`, etc.         | Structured error handling                         |
+Or in the API, set `"deep_search": false` in the request body.
 
 ---
 
 ## Error Handling
 
-| Scenario              | Behaviour                                                   |
-|-----------------------|-------------------------------------------------------------|
-| HTTP 403 / 404        | `NavigationError` raised with status code and reason        |
-| Connection timeout    | `NavigationError` raised — audit aborts gracefully          |
-| Sub-page load failure | Logged as warning, skipped — other sub-pages still crawled  |
-| LLM API failure       | Heuristic fallback activates automatically                  |
-| No API key set        | Heuristic fallback activates automatically                  |
-| Empty page content    | Warning logged, best-effort analysis of headings            |
+| Scenario              | Behaviour                                              |
+|-----------------------|--------------------------------------------------------|
+| HTTP 403 / 404        | Audit aborts with a clear error message                |
+| Connection timeout    | Audit aborts gracefully                                |
+| Sub-page load failure | Skipped with a warning, other sub-pages still crawled  |
+| API key missing       | Heuristic fallback activates automatically             |
+| API key invalid       | Heuristic fallback activates automatically             |
+| Empty page content    | Warning logged, best-effort analysis of headings       |
 
 ---
 
 ## Tech Stack
 
-- **Python 3.10+**
-- **Requests** — HTTP client with session reuse
-- **BeautifulSoup4** — HTML parsing and DOM traversal
-- **Pydantic v2** — Output schema validation
-- **Google Generative AI SDK** — Gemini LLM integration
-- **python-dotenv** — Environment variable management
+- Python 3.10+
+- Requests -- HTTP client with session reuse
+- BeautifulSoup4 -- HTML parsing and DOM traversal
+- Pydantic v2 -- Output schema validation
+- OpenAI SDK -- GPT-4o-mini integration for AI summaries
+- FastAPI -- REST API framework
+- Uvicorn -- ASGI server
+- python-dotenv -- Environment variable management

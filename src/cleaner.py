@@ -1,13 +1,13 @@
 """
 cleaner.py — The Refiner
 
-Separates *signal* (meaningful content) from *noise* (navigation bars,
+Separates signal (meaningful content) from noise (navigation bars,
 cookie banners, footers, social widgets, ads) in raw HTML documents.
 
 Pipeline:
-    1. ``strip_digital_clutter``  → remove noisy DOM elements entirely.
-    2. ``extract_content_signals`` → pull out title, headings, and body text.
-    3. ``distill_readable_text``  → normalise whitespace and strip leftover
+    1. ``strip_digital_clutter``   remove noisy DOM elements entirely.
+    2. ``extract_content_signals``  pull out title, headings, and body text.
+    3. ``distill_readable_text``   normalise whitespace and strip leftover
        HTML entities so the text is ready for the LLM.
 """
 
@@ -22,7 +22,7 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 
 from src.logger import pulse_logger
 
-# ── Constants ───────────────────────────────────────────────────────────
+#Constants
 
 # Tags that never carry primary content
 _NOISY_TAGS = {
@@ -44,30 +44,18 @@ _NOISE_PATTERNS = re.compile(
 _SNIPPET_LENGTH = 500
 
 
-# ── The Refiner ─────────────────────────────────────────────────────────
+#The Refiner
 
 class ContentRefinery:
-    """Cleans raw HTML and extracts structured, readable content."""
-
-    # ── Public API ──────────────────────────────────────────────────────
+    #Cleans raw HTML and extracts structured, readable content.
 
     def strip_digital_clutter(self, soup: BeautifulSoup) -> BeautifulSoup:
-        """Remove all noise elements from the DOM **in-place**.
-
-        This mutates the passed ``soup`` object — callers should make a
-        copy if they need the original tree intact.
-
-        Targets removed:
-            • Tags in ``_NOISY_TAGS``
-            • Elements whose ``class`` or ``id`` match ``_NOISE_PATTERNS``
-            • HTML comments
-        """
         # 1. Strip known noisy tags
         for tag_name in _NOISY_TAGS:
             for element in soup.find_all(tag_name):
                 element.decompose()
 
-        # 2. Strip elements whose class or id smells like noise
+        # 2. Strip elements whose class or id seems like noise
         for element in soup.find_all(True):
             if element.attrs is None:
                 continue
@@ -87,28 +75,19 @@ class ContentRefinery:
     def extract_content_signals(
         self, soup: BeautifulSoup
     ) -> tuple[Optional[str], list[str], str]:
-        """Pull structured signals from a de-cluttered DOM.
 
-        Returns:
-            A tuple of ``(page_title, headings, body_text)`` where:
-            - ``page_title`` is the content of ``<title>``.
-            - ``headings`` is a list of all ``<h1>`` and ``<h2>`` texts.
-            - ``body_text`` is the concatenated text from the most
-              content-dense container (``<article>``, ``<main>``, or
-              the heaviest ``<div>``).
-        """
-        # ── Title ───────────────────────────────────────────────────────
+        #  Title
         title_tag = soup.find("title")
         page_title = title_tag.get_text(strip=True) if title_tag else None
 
-        # ── Headings ────────────────────────────────────────────────────
+        # Headings
         headings: list[str] = []
         for tag in soup.find_all(["h1", "h2"]):
             text = tag.get_text(strip=True)
             if text and text not in headings:
                 headings.append(text)
 
-        # ── Body text — smart container detection ───────────────────────
+        # Body text 
         body_text = self._extract_primary_content(soup)
 
         pulse_logger.info(
@@ -119,19 +98,10 @@ class ContentRefinery:
         return page_title, headings, body_text
 
     def distill_readable_text(self, raw_text: str) -> str:
-        """Post-process extracted text into a clean, human-readable string.
-
-        Operations:
-            • Decode residual HTML entities (``&amp;`` → ``&``).
-            • Normalise Unicode (NFKC).
-            • Collapse runs of whitespace into single spaces.
-            • Strip leading/trailing whitespace per line.
-            • Remove completely blank lines.
-        """
         text = unescape(raw_text)
         text = unicodedata.normalize("NFKC", text)
 
-        # Collapse whitespace but preserve paragraph breaks
+        # remove whitespace but preserve paragraph breaks
         lines = text.splitlines()
         cleaned_lines: list[str] = []
         for line in lines:
@@ -150,17 +120,9 @@ class ContentRefinery:
         cleaned = self.distill_readable_text(body_text)
         return cleaned[:_SNIPPET_LENGTH]
 
-    # ── Private Helpers ─────────────────────────────────────────────────
+    # Private Helpers
 
     def _extract_primary_content(self, soup: BeautifulSoup) -> str:
-        """Identify the most content-rich container and return its text.
-
-        Strategy (in priority order):
-            1. ``<article>`` tag.
-            2. ``<main>`` tag.
-            3. The ``<div>`` with the most direct text content.
-            4. ``<body>`` fallback.
-        """
         # Try semantic containers first
         for semantic_tag in ("article", "main"):
             container = soup.find(semantic_tag)

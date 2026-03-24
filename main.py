@@ -4,10 +4,6 @@ main.py — WebPulse Entry Point
 Orchestrates the full audit pipeline:
     Collect  →  Clean  →  Audit  →  Validate  →  Output
 
-Usage:
-    python main.py https://example.com
-    python main.py https://example.com --no-deep-search
-    python main.py https://example.com --output report.json
 """
 
 from __future__ import annotations
@@ -32,11 +28,10 @@ from src.exceptions import ContentExtractionError, NavigationError, WebPulseErro
 from src.logger import pulse_logger
 from src.schema import AuditMetadata, SubPageIntelligence, WebsiteAuditReport
 
-# ── Load environment variables ──────────────────────────────────────────
 load_dotenv()
 
 
-# ── CLI Argument Parsing ────────────────────────────────────────────────
+# CLI Argument Parsing 
 
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -49,7 +44,9 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "url",
-        help="The target URL to audit (e.g. https://example.com)",
+        nargs="?",
+        default=None,
+        help="The target URL to audit (e.g. https://example.com). If omitted, you will be prompted.",
     )
     parser.add_argument(
         "--no-deep-search",
@@ -66,17 +63,17 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# ── Pipeline Orchestration ──────────────────────────────────────────────
+# Pipeline Orchestration
 
 def run_audit(url: str, deep_search: bool = True, output_path: str | None = None) -> None:
-    """Execute the full WebPulse pipeline for a given URL."""
+   #Execute the full WebPulse pipeline for a given URL.
 
     start_time = time.time()
 
     pulse_logger.info("WebPulse v1.0 — Starting audit for %s", url)
     print()  # Visual separator
 
-    # ── 1. COLLECT ──────────────────────────────────────────────────────
+    #1. COLLECT
     collector = SiteIntelligenceCollector()
 
     try:
@@ -85,14 +82,14 @@ def run_audit(url: str, deep_search: bool = True, output_path: str | None = None
         pulse_logger.error("Audit aborted — %s", exc)
         sys.exit(1)
 
-    # ── 2. DISCOVER SUB-PAGES ───────────────────────────────────────────
+    #2. DISCOVER SUB-PAGES
     sub_page_results = []
     if deep_search:
         sub_page_urls = collector.discover_sub_pages(root_soup, url)
         if sub_page_urls:
             sub_page_results = collector.harvest_sub_pages(sub_page_urls)
 
-    # ── 3. CLEAN ────────────────────────────────────────────────────────
+    #3. CLEAN
     refinery = ContentRefinery()
 
     # Work on a copy so the original soup remains intact for debugging
@@ -128,20 +125,31 @@ def run_audit(url: str, deep_search: bool = True, output_path: str | None = None
             )
         )
 
-    # ── 4. AUDIT ────────────────────────────────────────────────────────
+    #4. AUDIT
     auditor = WebsiteAuditor()
     summary, business_type, method = auditor.generate_business_brief(
-        cleaned_content, headings, sub_page_snippets or None
+        cleaned_content, headings, sub_page_snippets or None, url=url
     )
 
-    # ── 5. VALIDATE & OUTPUT ────────────────────────────────────────────
+    if method == "llm":
+        pulse_logger.info(
+            "Summary generated using AI (OpenAI %s) — Business type: '%s'",
+            "gpt-4o-mini", business_type,
+        )
+    else:
+        pulse_logger.warning(
+            "Summary generated using HEURISTIC FALLBACK (no LLM) — "
+            "Set OPENAI_API_KEY in .env for AI-powered summaries"
+        )
+
+    #5. VALIDATE & OUTPUT
     elapsed = round(time.time() - start_time, 2)
 
     report = WebsiteAuditReport(
         url=url,
         page_title=page_title,
         headings=headings,
-        cleaned_content=cleaned_content[:2000],  # Truncate for readability
+        cleaned_content=cleaned_content[:2000],  
         summary=summary,
         business_type=business_type,
         sub_pages=sub_page_intelligence,
@@ -172,14 +180,31 @@ def run_audit(url: str, deep_search: bool = True, output_path: str | None = None
     pulse_logger.info("Report saved to %s", output_path)
 
 
-# ── Main ────────────────────────────────────────────────────────────────
+#Main
 
 def main() -> None:
     parser = _build_argument_parser()
     args = parser.parse_args()
 
+    url = args.url
+    if not url:
+        print(" Welcome to Project WebPulse")
+        try:
+            url = input("Enter the target URL to audit (e.g., example.com): ").strip()
+        except KeyboardInterrupt:
+            print("\n[WEBPULSE] Audit cancelled.")
+            sys.exit(0)
+            
+        if not url:
+            print("[WEBPULSE] Error: A valid URL is required.", file=sys.stderr)
+            sys.exit(1)
+
+    
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
     run_audit(
-        url=args.url,
+        url=url,
         deep_search=not args.no_deep_search,
         output_path=args.output,
     )

@@ -4,19 +4,17 @@ auditor.py — The Brain
 Synthesises a structured business profile from cleaned website content.
 Two strategies are available:
 
-    1. **LLM-powered** (``BusinessProfileSynthesizer``)
-       Uses the Google Gemini API (``gemini-2.0-flash``) to produce a
+    1. LLM-powered 
+       Uses the Openai API (``gpt-4o-mini``) to produce a
        rich 3–5 line summary and a business-type classification.
 
-    2. **Heuristic fallback** (``HeuristicFallbackAnalyzer``)
+    2. Heuristic fallback 
        Activates automatically when the API key is missing, the request
        fails, or the response is malformed.  Uses frequency analysis of
        key phrases and first-paragraph extraction to produce a
        best-effort summary.
 
-This dual-strategy architecture is the project's *Reliability Layer* —
-it ensures the pipeline always returns something useful, even without
-network access to an LLM provider.
+The Duel Strategy ensures the pipeline always returns something useful instead of just relying on LLM 
 """
 
 from __future__ import annotations
@@ -27,22 +25,35 @@ import re
 from collections import Counter
 from typing import Optional
 
+from openai import OpenAI
+
 from src.exceptions import AuditSynthesisError
 from src.logger import pulse_logger
 
-# ── Constants ───────────────────────────────────────────────────────────
 
-_LLM_MODEL = "gemini-2.0-flash"
+
+_LLM_MODEL = "gpt-4o-mini"
 
 _SYSTEM_PROMPT = (
-    "You are a senior business analyst. Given the text content and "
-    "headings from a website, produce a JSON object with exactly two "
-    "keys:\n"
-    '  "summary": a 3-5 line paragraph summarising what the website is about,\n'
+    "You are a senior business analyst. You will be given:\n"
+    "  1. The target URL\n"
+    "  2. Headings and text content extracted from the website\n"
+    "  3. Optionally, snippets from sub-pages\n\n"
+    "Produce a JSON object with exactly two keys:\n"
+    '  "summary": a 3-5 line paragraph summarising what the website actually is and does,\n'
     '  "business_type": a short label for the industry or category '
-    "(e.g. 'E-Commerce', 'SaaS', 'Healthcare', 'Education', "
-    "'News & Media', 'Government', 'Non-Profit', 'Portfolio', etc.).\n"
-    "Return ONLY the JSON object, no markdown fences, no extra text."
+    "(e.g. 'Social Media', 'Search Engine', 'E-Commerce', 'SaaS', "
+    "'Video Streaming', 'Healthcare', 'Education', 'News & Media').\n\n"
+    "IMPORTANT RULES:\n"
+    "- The URL itself is a strong identity signal. Use it along with any "
+    "available content to identify the website.\n"
+    "- If the extracted content is sparse or mostly boilerplate (login pages, "
+    "cookie notices, JavaScript placeholders), use the URL and domain name "
+    "to identify the website and provide an accurate summary based on your "
+    "knowledge of that website.\n"
+    "- NEVER fabricate generic descriptions. Be specific to the actual website.\n"
+    "- Prioritize Main Content over Sub-Page Snippets for classification.\n"
+    "- Return ONLY the JSON object, no markdown fences, no extra text."
 )
 
 # Common stop-words to exclude from frequency analysis
@@ -62,37 +73,28 @@ _STOP_WORDS = {
 }
 
 
-# ── LLM Strategy ───────────────────────────────────────────────────────
-
+#LLM Strategy 
 class BusinessProfileSynthesizer:
-    """Uses the Google Gemini API to generate a business summary.
-
-    The synthesizer lazily imports the ``google.generativeai`` SDK and
-    configures it on first use, so importing this module never raises
-    even if the SDK isn't installed.
-    """
+    #Using Openai API to generate a business summary
 
     def __init__(self) -> None:
-        self._model = None
+        self._client: OpenAI | None = None
         self._available: Optional[bool] = None
+        self._last_url: str = "unknown"
 
-    # ── Public API ──────────────────────────────────────────────────────
-
+    
     def is_available(self) -> bool:
-        """Check whether the Gemini SDK is installed and a key is set."""
+        #Check whether an OpenAI API key is set.
         if self._available is not None:
             return self._available
 
-        api_key = os.getenv("GEMINI_API_KEY", "").strip()
+        api_key = os.getenv("OPENAI_API_KEY", "").strip()
         if not api_key:
             self._available = False
             return False
 
         try:
-            import google.generativeai as genai  # type: ignore[import-untyped]
-
-            genai.configure(api_key=api_key)
-            self._model = genai.GenerativeModel(_LLM_MODEL)
+            self._client = OpenAI(api_key=api_key)
             self._available = True
         except Exception:
             self._available = False
@@ -104,18 +106,17 @@ class BusinessProfileSynthesizer:
         content: str,
         headings: list[str],
         sub_page_snippets: list[str] | None = None,
+        url: str = "unknown",
     ) -> tuple[str, str]:
-        """Call the Gemini API and return ``(summary, business_type)``.
-
-        Raises:
-            AuditSynthesisError: If the API response cannot be parsed.
-        """
+        
+        self._last_url = url
         if not self.is_available():
-            raise AuditSynthesisError("Gemini API is not configured")
+            raise AuditSynthesisError("OpenAI API is not configured")
 
         # Build the user prompt
-        heading_block = "\n".join(f"• {h}" for h in headings) if headings else "(none)"
+        heading_block = "\n".join(f"  {h}" for h in headings) if headings else "(none)"
         user_prompt = (
+            f"## Target URL\n{self._last_url or 'unknown'}\n\n"
             f"## Headings\n{heading_block}\n\n"
             f"## Main Content (truncated to 3000 chars)\n{content[:3000]}"
         )
@@ -124,12 +125,18 @@ class BusinessProfileSynthesizer:
             user_prompt += f"\n\n## Sub-Page Snippets\n{combined}"
 
         try:
-            response = self._model.generate_content(
-                f"{_SYSTEM_PROMPT}\n\n{user_prompt}"
+            response = self._client.chat.completions.create(
+                model=_LLM_MODEL,
+                temperature=0.2,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
             )
-            raw_text = response.text.strip()
+            raw_text = response.choices[0].message.content.strip()
 
-            # Strip potential markdown code fences
+            # Strip potential markdown code fences if they appear
             raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
             raw_text = re.sub(r"\s*```$", "", raw_text)
 
@@ -151,17 +158,17 @@ class BusinessProfileSynthesizer:
             raise AuditSynthesisError(f"LLM call failed — {exc}")
 
 
-# ── Heuristic Fallback Strategy ─────────────────────────────────────────
+# Heuristic Fallback Strategy 
 
 class HeuristicFallbackAnalyzer:
-    """Safety-net analyser that runs when the LLM is unavailable.
+    # Safety-net analyser that runs when the LLM is unavailable.
 
-    Strategy:
-        1. **First-paragraph extraction**: Grabs the first 3–5 sentences
-           as a naive summary.
-        2. **Frequency analysis**: Counts the most common non-stopword
-           terms to guess the business domain.
-    """
+    # Strategy:
+    #     1. First-paragraph extraction: Grabs the first 3–5 sentences
+    #        as a naive summary.
+    #     2. Frequency analysis: Counts the most common non-stopword
+    #        terms to guess the business domain.
+    
 
     def synthesize_business_profile(
         self,
@@ -169,13 +176,7 @@ class HeuristicFallbackAnalyzer:
         headings: list[str],
         sub_page_snippets: list[str] | None = None,
     ) -> tuple[str, str]:
-        """Produce a best-effort summary using heuristic methods.
-
-        Returns:
-            ``(summary, business_type)`` — the business type is always
-            ``"General / Unclassified"`` unless strong keyword signals
-            are detected.
-        """
+        
         pulse_logger.warning(
             "LLM unavailable — engaging heuristic fallback analyzer"
         )
@@ -193,12 +194,11 @@ class HeuristicFallbackAnalyzer:
         )
         return summary, business_type
 
-    # ── Private Helpers ─────────────────────────────────────────────────
-
+    # Private Helpers 
     def _extract_lead_paragraph(
         self, text: str, headings: list[str]
     ) -> str:
-        """Build a summary from the first few meaningful sentences."""
+        #Build a summary from the first few meaningful sentences.
         # Split into sentences (rough heuristic)
         sentences = re.split(r"(?<=[.!?])\s+", text.strip())
         meaningful = [
@@ -278,13 +278,12 @@ class HeuristicFallbackAnalyzer:
         return best_type
 
 
-# ── Unified Audit Facade ────────────────────────────────────────────────
+ 
 
 class WebsiteAuditor:
-    """High-level facade that tries the LLM first, then falls back to
-    heuristics.  This is the only class that ``main.py`` needs to
-    interact with.
-    """
+    #High-level facade that tries the LLM first, then falls back to heuristics
+    # This is the only class that ``main.py`` needs to interact with
+    
 
     def __init__(self) -> None:
         self._llm = BusinessProfileSynthesizer()
@@ -295,15 +294,13 @@ class WebsiteAuditor:
         content: str,
         headings: list[str],
         sub_page_snippets: list[str] | None = None,
+        url: str = "unknown",
     ) -> tuple[str, str, str]:
-        """Return ``(summary, business_type, method)`` where *method* is
-        ``'llm'`` or ``'heuristic'``.
-        """
         # Attempt LLM first
         if self._llm.is_available():
             try:
                 summary, biz = self._llm.synthesize_business_profile(
-                    content, headings, sub_page_snippets
+                    content, headings, sub_page_snippets, url=url
                 )
                 return summary, biz, "llm"
             except AuditSynthesisError as exc:

@@ -5,12 +5,6 @@ Responsible for navigating to target URLs, fetching raw HTML, and
 discovering internal sub-pages (Deep Search) that may contain
 additional business intelligence (e.g. /about, /services, /contact).
 
-Design Notes:
-    • User-Agent rotation prevents naive bot detection.
-    • Sub-page discovery is pattern-based and capped at 5 pages
-      to remain respectful of the target server.
-    • Every HTTP interaction is wrapped in custom exception handling
-      so failures surface as structured NavigationError objects.
 """
 
 from __future__ import annotations
@@ -25,8 +19,8 @@ from bs4 import BeautifulSoup
 from src.exceptions import NavigationError
 from src.logger import pulse_logger
 
-# ── Constants ───────────────────────────────────────────────────────────
-
+# Constants
+# Connectors, the user agent to avoid bot detection
 _USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -39,7 +33,6 @@ _USER_AGENTS = [
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
 ]
 
-# Slug patterns that typically lead to high-value business pages
 _DISCOVERY_PATTERNS = {
     "about", "about-us", "about_us",
     "services", "our-services", "what-we-do",
@@ -55,34 +48,19 @@ _MAX_SUB_PAGES = 5
 _REQUEST_TIMEOUT_SECONDS = 15
 
 
-# ── The Explorer ────────────────────────────────────────────────────────
+# The Explorer
 
 class SiteIntelligenceCollector:
-    """Navigates to websites and harvests their raw HTML.
-
-    Attributes:
-        session: A persistent ``requests.Session`` for connection reuse.
-    """
+    # Navigates to websites and extracts their raw HTML.
 
     def __init__(self) -> None:
         self.session = requests.Session()
 
-    # ── Public API ──────────────────────────────────────────────────────
+    # Public API
 
     def harvest_page_intelligence(
         self, url: str
     ) -> tuple[str, BeautifulSoup]:
-        """Fetch a single page and return ``(raw_html, soup)``.
-
-        Args:
-            url: Fully-qualified URL to fetch.
-
-        Returns:
-            A tuple of the raw HTML string and its parsed BeautifulSoup tree.
-
-        Raises:
-            NavigationError: On any HTTP or network-level failure.
-        """
         raw_html = self._navigate_to(url)
         soup = BeautifulSoup(raw_html, "html.parser")
         pulse_logger.info("Successfully navigated to %s", url)
@@ -91,15 +69,7 @@ class SiteIntelligenceCollector:
     def discover_sub_pages(
         self, soup: BeautifulSoup, base_url: str
     ) -> list[str]:
-        """Scan the DOM for internal links that match high-value patterns.
-
-        Args:
-            soup: Parsed DOM of the root page.
-            base_url: The root URL used to resolve relative links.
-
-        Returns:
-            A de-duplicated list of absolute sub-page URLs (max 5).
-        """
+        # Scan the DOM for internal links that match high-value patterns.
         parsed_base = urlparse(base_url)
         base_domain = parsed_base.netloc
         discovered: dict[str, str] = {}  # slug → absolute URL
@@ -147,15 +117,7 @@ class SiteIntelligenceCollector:
     def harvest_sub_pages(
         self, sub_page_urls: list[str]
     ) -> list[tuple[str, BeautifulSoup, str]]:
-        """Fetch each sub-page URL and return a list of parsed results.
-
-        Pages that fail to load are logged and skipped rather than
-        crashing the entire pipeline.
-
-        Returns:
-            A list of ``(raw_html, soup, url)`` tuples for pages that
-            loaded successfully.
-        """
+       #Fetch each sub-page URL and return a list of parsed results.
         results: list[tuple[str, BeautifulSoup, str]] = []
         for page_url in sub_page_urls:
             try:
@@ -167,15 +129,10 @@ class SiteIntelligenceCollector:
                 )
         return results
 
-    # ── Private Helpers ─────────────────────────────────────────────────
+    # Private Helpers 
 
     def _navigate_to(self, url: str) -> str:
-        """Low-level HTTP GET with User-Agent rotation and error mapping.
-
-        Raises:
-            NavigationError: Wraps the underlying requests exception
-                with a human-readable reason and optional status code.
-        """
+       # Low-level HTTP GET with User-Agent rotation and error mapping.
         headers = {"User-Agent": random.choice(_USER_AGENTS)}
 
         try:

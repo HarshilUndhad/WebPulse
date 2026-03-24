@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 
 class SubPageIntelligence(BaseModel):
-    """Structured representation of a single sub-page (e.g. /about)."""
+    #Structured representation of a single sub-page (e.g. /about).
 
     url: str = Field(..., description="Fully-qualified URL of the sub-page")
     title: Optional[str] = Field(None, description="HTML <title> of the sub-page")
@@ -31,8 +31,7 @@ class SubPageIntelligence(BaseModel):
 
 
 class AuditMetadata(BaseModel):
-    """Operational metadata about how the audit was performed."""
-
+    
     timestamp: str = Field(
         default_factory=lambda: datetime.now().isoformat(),
         description="ISO-8601 timestamp of the audit run",
@@ -52,11 +51,7 @@ class AuditMetadata(BaseModel):
 
 
 class WebsiteAuditReport(BaseModel):
-    """Top-level output schema returned by the WebPulse pipeline.
-
-    This is the contract between the auditor and any downstream consumer
-    (CLI pretty-printer, API endpoint, database writer, etc.).
-    """
+   #Top-level output schema returned by the WebPulse pipeline.
 
     url: str = Field(..., description="The root URL that was audited")
     page_title: Optional[str] = Field(None, description="HTML <title> of the root page")
