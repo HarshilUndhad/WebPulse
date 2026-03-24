@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebPulse - Website Auditor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f111a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            text-align: center;
+            padding: 3rem 1rem 1.5rem;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            letter-spacing: -0.5px;
+        }
+
+        header h1 span {
+            color: #6366f1;
+        }
+
+        header p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            margin-top: 0.4rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            padding: 0 1.5rem;
+        }
+
+        /* Search Bar */
+        .search-bar {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-bar input {
+            flex: 1;
+            padding: 0.85rem 1.2rem;
+            border: 1px solid #2d3348;
+            border-radius: 10px;
+            background: #1a1d2e;
+            color: #f1f5f9;
+            font-size: 0.95rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-bar input:focus {
+            border-color: #6366f1;
+        }
+
+        .search-bar input::placeholder {
+            color: #64748b;
+        }
+
+        .search-bar button {
+            padding: 0.85rem 1.8rem;
+            border: none;
+            border-radius: 10px;
+            background: #6366f1;
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            white-space: nowrap;
+        }
+
+        .search-bar button:hover {
+            background: #5558e6;
+        }
+
+        .search-bar button:active {
+            transform: scale(0.97);
+        }
+
+        .search-bar button:disabled {
+            background: #3b3e5e;
+            cursor: not-allowed;
+        }
+
+        /* Options Row */
+        .options {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding-left: 0.2rem;
+        }
+
+        .options label {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .options input[type="checkbox"] {
+            accent-color: #6366f1;
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Status */
+        .status {
+            text-align: center;
+            padding: 3rem 0;
+            display: none;
+        }
+
+        .status.visible {
+            display: block;
+        }
+
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid #2d3348;
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        /* Error */
+        .error-box {
+            background: #1c1320;
+            border: 1px solid #7f1d1d;
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            color: #fca5a5;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .error-box.visible {
+            display: block;
+        }
+
+        /* Results */
+        .results {
+            display: none;
+        }
+
+        .results.visible {
+            display: block;
+        }
+
+        /* Summary Card */
+        .card {
+            background: #1a1d2e;
+            border: 1px solid #2d3348;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .card-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-llm {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+        }
+
+        .badge-heuristic {
+            background: rgba(234, 179, 8, 0.15);
+            color: #fde68a;
+        }
+
+        .business-type {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid #3b3e5e;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #a5b4fc;
+            margin-bottom: 0.8rem;
+        }
+
+        .summary-text {
+            color: #cbd5e1;
+            font-size: 0.9rem;
+            line-height: 1.65;
+        }
+
+        .meta-row {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid #2d3348;
+        }
+
+        .meta-item {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        .meta-item span {
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        /* Headings & Sub-pages */
+        .detail-section {
+            margin-top: 0.5rem;
+        }
+
+        .detail-section h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .tag {
+            padding: 0.25rem 0.6rem;
+            background: #252840;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #cbd5e1;
+        }
+
+        .sub-page {
+            background: #151724;
+            border: 1px solid #252840;
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .sub-page-url {
+            font-size: 0.8rem;
+            color: #6366f1;
+            word-break: break-all;
+        }
+
+        .sub-page-title {
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            margin-top: 0.2rem;
+        }
+
+        /* JSON Toggle */
+        .json-toggle {
+            text-align: center;
+            margin: 1.5rem 0 3rem;
+        }
+
+        .json-toggle button {
+            background: none;
+            border: 1px solid #2d3348;
+            border-radius: 8px;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            font-family: 'Inter', sans-serif;
+            padding: 0.5rem 1.2rem;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .json-toggle button:hover {
+            border-color: #6366f1;
+            color: #e2e8f0;
+        }
+
+        .json-block {
+            display: none;
+            margin-top: 0.8rem;
+            text-align: left;
+        }
+
+        .json-block.visible {
+            display: block;
+        }
+
+        .json-block pre {
+            background: #151724;
+            border: 1px solid #252840;
+            border-radius: 10px;
+            padding: 1.2rem;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #a5b4fc;
+        }
+
+        footer {
+            padding: 2rem 0;
+            text-align: center;
+            color: #475569;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Web<span>Pulse</span></h1>
+        <p>AI-Powered Website Auditor and Summarizer</p>
+    </header>
+
+    <div class="container">
+        <div class="search-bar">
+            <input type="text" id="urlInput" placeholder="Enter a website URL (e.g. youtube.com)" autofocus>
+            <button id="auditBtn" onclick="runAudit()">Audit</button>
+        </div>
+
+        <div class="options">
+            <label>
+                <input type="checkbox" id="deepSearch" checked>
+                Deep Search (discover sub-pages)
+            </label>
+        </div>
+
+        <div class="error-box" id="errorBox"></div>
+
+        <div class="status" id="statusBox">
+            <div class="spinner"></div>
+            <p id="statusText">Auditing website...</p>
+        </div>
+
+        <div class="results" id="results">
+            <div class="card">
+                <div class="card-header">
+                    <h2 id="pageTitle">-</h2>
+                    <span class="badge" id="methodBadge">-</span>
+                </div>
+                <div class="business-type" id="businessType">-</div>
+                <div class="summary-text" id="summaryText">-</div>
+                <div class="meta-row">
+                    <div class="meta-item">URL: <span id="metaUrl">-</span></div>
+                    <div class="meta-item">Time: <span id="metaTime">-</span></div>
+                    <div class="meta-item">Sub-pages: <span id="metaSubs">-</span></div>
+                </div>
+            </div>
+
+            <div class="card detail-section" id="headingsCard" style="display:none;">
+                <h3>Headings Found</h3>
+                <div class="tag-list" id="headingsList"></div>
+            </div>
+
+            <div class="card detail-section" id="subPagesCard" style="display:none;">
+                <h3>Sub-Pages Discovered</h3>
+                <div id="subPagesList"></div>
+            </div>
+
+            <div class="json-toggle">
+                <button onclick="toggleJson()">Show Raw JSON</button>
+                <div class="json-block" id="jsonBlock">
+                    <pre id="jsonOutput"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>WebPulse v1.0</footer>
+
+    <script>
+        const urlInput = document.getElementById('urlInput');
+        const auditBtn = document.getElementById('auditBtn');
+        const statusBox = document.getElementById('statusBox');
+        const statusText = document.getElementById('statusText');
+        const errorBox = document.getElementById('errorBox');
+        const results = document.getElementById('results');
+
+        urlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') runAudit();
+        });
+
+        async function runAudit() {
+            const url = urlInput.value.trim();
+            if (!url) { urlInput.focus(); return; }
+
+            const deepSearch = document.getElementById('deepSearch').checked;
+
+            // Reset UI
+            errorBox.classList.remove('visible');
+            results.classList.remove('visible');
+            statusBox.classList.add('visible');
+            statusText.textContent = 'Connecting to ' + url + '...';
+            auditBtn.disabled = true;
+
+            const endpoint = deepSearch ? '/audit' : '/audit/quick';
+
+            try {
+                statusText.textContent = 'Extracting and analysing content...';
+
+                const resp = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url, deep_search: deepSearch }),
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || 'Audit failed');
+                }
+
+                const data = await resp.json();
+                displayResults(data);
+
+            } catch (err) {
+                errorBox.textContent = err.message;
+                errorBox.classList.add('visible');
+            } finally {
+                statusBox.classList.remove('visible');
+                auditBtn.disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('pageTitle').textContent = data.page_title || 'Untitled Page';
+            document.getElementById('businessType').textContent = data.business_type;
+            document.getElementById('summaryText').textContent = data.summary;
+            document.getElementById('metaUrl').textContent = data.url;
+            document.getElementById('metaTime').textContent = data.audit_metadata.elapsed_seconds + 's';
+            document.getElementById('metaSubs').textContent = data.audit_metadata.sub_pages_discovered;
+
+            const badge = document.getElementById('methodBadge');
+            if (data.audit_metadata.synthesis_method === 'llm') {
+                badge.textContent = 'AI Generated';
+                badge.className = 'badge badge-llm';
+            } else {
+                badge.textContent = 'Heuristic';
+                badge.className = 'badge badge-heuristic';
+            }
+
+            // Headings
+            const headingsCard = document.getElementById('headingsCard');
+            const headingsList = document.getElementById('headingsList');
+            headingsList.innerHTML = '';
+            if (data.headings && data.headings.length > 0) {
+                data.headings.forEach(h => {
+                    const tag = document.createElement('span');
+                    tag.className = 'tag';
+                    tag.textContent = h;
+                    headingsList.appendChild(tag);
+                });
+                headingsCard.style.display = 'block';
+            } else {
+                headingsCard.style.display = 'none';
+            }
+
+            // Sub-pages
+            const subPagesCard = document.getElementById('subPagesCard');
+            const subPagesList = document.getElementById('subPagesList');
+            subPagesList.innerHTML = '';
+            if (data.sub_pages && data.sub_pages.length > 0) {
+                data.sub_pages.forEach(sp => {
+                    const div = document.createElement('div');
+                    div.className = 'sub-page';
+                    div.innerHTML = `
+                        <div class="sub-page-url">${sp.url}</div>
+                        <div class="sub-page-title">${sp.title || 'No title'}</div>
+                    `;
+                    subPagesList.appendChild(div);
+                });
+                subPagesCard.style.display = 'block';
+            } else {
+                subPagesCard.style.display = 'none';
+            }
+
+            // JSON
+            document.getElementById('jsonOutput').textContent = JSON.stringify(data, null, 2);
+            document.getElementById('jsonBlock').classList.remove('visible');
+
+            results.classList.add('visible');
+        }
+
+        function toggleJson() {
+            document.getElementById('jsonBlock').classList.toggle('visible');
+        }
+    </script>
+
+</body>
+</html>

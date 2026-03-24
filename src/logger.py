@@ -4,9 +4,6 @@ logger.py — WebPulse Terminal Intelligence Logger
 Provides a professional, colour-coded logging experience that prints
 structured status updates to the terminal during an audit run.
 
-Usage:
-    from src.logger import pulse_logger
-    pulse_logger.info("Successfully navigated to %s", url)
 """
 
 import logging
@@ -14,10 +11,7 @@ import sys
 
 
 class _PulseFormatter(logging.Formatter):
-    """Custom formatter that prefixes every message with a branded tag
-    and a status icon based on severity level."""
-
-    # ANSI colour codes for terminal output
+    #Custom formatter that prefixes every message with a branded tag
     _COLOURS = {
         logging.DEBUG:    "\033[90m",     # grey
         logging.INFO:     "\033[96m",     # cyan
@@ -43,7 +37,6 @@ class _PulseFormatter(logging.Formatter):
 
 
 def _build_pulse_logger() -> logging.Logger:
-    """Construct and return the singleton WebPulse logger."""
     logger = logging.getLogger("webpulse")
     logger.setLevel(logging.DEBUG)
 
@@ -59,11 +52,9 @@ def _build_pulse_logger() -> logging.Logger:
         console_handler.setLevel(logging.DEBUG)
         console_handler.setFormatter(_PulseFormatter())
         logger.addHandler(console_handler)
-
-    # Prevent propagation to the root logger to avoid duplicate messages
     logger.propagate = False
     return logger
 
 
-# ── Public API ──────────────────────────────────────────────────────────
+# Public API 
 pulse_logger = _build_pulse_logger()
