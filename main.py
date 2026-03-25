@@ -147,7 +147,7 @@ def run_audit(url: str, deep_search: bool = True, output_path: str | None = None
 
     report = WebsiteAuditReport(
         url=url,
-        page_title=page_title,
+        title=page_title,
         headings=headings,
         cleaned_content=cleaned_content[:2000],  
         summary=summary,

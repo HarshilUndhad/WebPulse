@@ -473,7 +473,7 @@
         }
 
         function displayResults(data) {
-            document.getElementById('pageTitle').textContent = data.page_title || 'Untitled Page';
+            document.getElementById('pageTitle').textContent = data.title || 'Untitled Page';
             document.getElementById('businessType').textContent = data.business_type;
             document.getElementById('summaryText').textContent = data.summary;
             document.getElementById('metaUrl').textContent = data.url;

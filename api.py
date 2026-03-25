@@ -148,7 +148,7 @@ def _run_pipeline(url: str, deep_search: bool = True) -> WebsiteAuditReport:
 
     report = WebsiteAuditReport(
         url=url,
-        page_title=page_title,
+        title=page_title,
         headings=headings,
         cleaned_content=cleaned_content[:2000],
         summary=summary,

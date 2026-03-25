@@ -54,7 +54,7 @@ class WebsiteAuditReport(BaseModel):
    #Top-level output schema returned by the WebPulse pipeline.
 
     url: str = Field(..., description="The root URL that was audited")
-    page_title: Optional[str] = Field(None, description="HTML <title> of the root page")
+    title: Optional[str] = Field(None, description="HTML <title> of the root page")
     headings: list[str] = Field(
         default_factory=list,
         description="All H1/H2 headings from the root page",
