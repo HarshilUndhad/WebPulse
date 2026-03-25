@@ -103,7 +103,7 @@ You can get an API key at: https://platform.openai.com/api-keys
 If you skip this step, WebPulse will still work using the heuristic fallback analyzer instead of AI. See the [Reliability Layer](#reliability-layer) section for details.
 
 
-### Command Line
+## Run With Command Line
 
 Run from the project root directory:
 
@@ -123,7 +123,7 @@ py main.py https://youtube.com --output results/my_report.json
 
 Note: On Windows, use `py` instead of `python` if Python is not in your PATH.
 
-### REST API (with Web Frontend)
+## Run With REST API (with Web Frontend)
 
 Start the FastAPI server:
 
